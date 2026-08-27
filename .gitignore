@@ -1,0 +1,24 @@
+# 密钥：绝不提交。部署时用平台 Secrets 注入。
+.env
+*.env
+!.env.example
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# 运行时生成的数据（知识库为空时会自动重建）
+backend/data/chroma/
+backend/logs/
+
+# 前端
+node_modules/
+dist/
+
+# 系统
+.DS_Store
+.idea/
+
+# 构建产物（Docker 构建时重新生成）
+backend/static/
