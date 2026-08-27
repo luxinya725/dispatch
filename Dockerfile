@@ -11,30 +11,38 @@ RUN npm run build
 
 # ── 阶段二：运行时 ────────────────────────────────────────────────────────────
 FROM python:3.12-slim
-WORKDIR /app
 
-# HF Spaces 以非 root 用户运行，缓存目录需可写
-ENV HOME=/app \
+# HF Spaces 以 uid 1000 的非 root 用户运行容器。
+# 必须建同名用户并保证工作目录可写，否则 ChromaDB 建库、模型缓存都会因权限失败。
+RUN useradd -m -u 1000 user
+USER user
+ENV HOME=/home/user \
+    PATH=/home/user/.local/bin:$PATH \
     PYTHONUNBUFFERED=1 \
     ANONYMIZED_TELEMETRY=False
 
-COPY backend/requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+WORKDIR $HOME/app
 
-COPY backend/ ./
+COPY --chown=user backend/requirements.txt ./
+RUN pip install --no-cache-dir --user -r requirements.txt
 
-# 预下载向量模型（约 166MB），避免首次请求时才下载导致超时
+COPY --chown=user backend/ ./
+
+# 预下载向量模型（约 166MB）到用户缓存目录，避免首个请求时才下载导致超时
 RUN python -c "from chromadb.utils import embedding_functions as ef; ef.ONNXMiniLM_L6_V2()._download_model_if_not_exists()" \
     || echo "模型预下载失败，运行时会自动下载"
 
 # 前端构建产物
-COPY --from=frontend /build/dist ./static
+COPY --chown=user --from=frontend /build/dist ./static
 
-# 部署环境默认值：无 Redis（走内存降级）、数据写入容器内路径
+# 运行时数据目录（知识库为空时会自动重建，无需持久化）
+RUN mkdir -p $HOME/app/data/chroma
+
+# 部署环境默认值：无 Redis（走内存降级）
 ENV REDIS_URL="" \
-    CHROMA_PERSIST_DIRECTORY=/app/data/chroma \
-    EVAL_BASELINE_PATH=/app/data/eval/baseline.json \
-    FRONTEND_DIST=/app/static \
+    CHROMA_PERSIST_DIRECTORY=/home/user/app/data/chroma \
+    EVAL_BASELINE_PATH=/home/user/app/data/eval/baseline.json \
+    FRONTEND_DIST=/home/user/app/static \
     PROMETHEUS_PORT=0 \
     CHAT_RATE_LIMIT="20/hour" \
     API_HOST=0.0.0.0 \
