@@ -666,9 +666,10 @@ if __name__ == "__main__":
     if "--cli" in sys.argv:
         asyncio.run(_cli())
     else:
+        # PORT 是 Koyeb / Render / Cloud Run 等平台注入端口的通用约定，优先级最高。
         uvicorn.run(
             "api.main:app",
             host=os.getenv("API_HOST", "0.0.0.0"),
-            port=int(os.getenv("API_PORT", "8000")),
+            port=int(os.getenv("PORT") or os.getenv("API_PORT", "8000")),
             reload=os.getenv("APP_ENV") == "development",
         )
