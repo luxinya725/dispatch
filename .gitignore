@@ -25,3 +25,5 @@ backend/static/
 
 # 服务器部署时生成，含 API Key
 .env.deploy
+build.log
+deploy.log

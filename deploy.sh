@@ -52,7 +52,25 @@ fi
 # ── 4. 构建镜像 ────────────────────────────────────────────────────────────────
 echo
 echo "[4/5] 构建 Docker 镜像（首次约 5-10 分钟，含下载 166MB 向量模型）..."
-sudo docker build -t dispatch:latest . 2>&1 | grep -E "Step|Successfully|ERROR|error" || true
+
+# 自动选择镜像源：腾讯云镜像可达（国内 / 香港机房）就用它，否则用官方源。
+BUILD_ARGS=""
+if curl -sf --max-time 5 -o /dev/null https://mirrors.cloud.tencent.com/pypi/simple/pip/ 2>/dev/null; then
+  echo "      检测到腾讯云镜像可达，使用国内镜像源加速"
+  BUILD_ARGS="--build-arg PIP_INDEX_URL=https://mirrors.cloud.tencent.com/pypi/simple --build-arg NPM_REGISTRY=https://mirrors.cloud.tencent.com/npm/"
+else
+  echo "      使用官方源"
+fi
+
+# shellcheck disable=SC2086
+if ! sudo docker build $BUILD_ARGS -t dispatch:latest . 2>&1 | tee build.log | grep -E "^#[0-9]+ (\[|DONE|ERROR)|Successfully|error" ; then
+  :
+fi
+if ! sudo docker image inspect dispatch:latest >/dev/null 2>&1; then
+  echo "      ❌ 镜像构建失败，完整日志见 build.log"
+  tail -30 build.log
+  exit 1
+fi
 echo "      ✅ 镜像构建完成"
 
 # ── 5. 启动服务 ────────────────────────────────────────────────────────────────

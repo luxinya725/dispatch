@@ -1,16 +1,25 @@
 # Dispatch — 单容器部署（前端构建产物由 FastAPI 一起托管）
 # 适用于 Hugging Face Spaces (Docker SDK) / Cloud Run / 任何支持 Docker 的平台
 
+# 镜像源（可选）：在中国大陆 / 香港等到官方源不畅的环境，通过 --build-arg 切换。
+#   --build-arg NPM_REGISTRY=https://mirrors.cloud.tencent.com/npm/
+#   --build-arg PIP_INDEX_URL=https://mirrors.cloud.tencent.com/pypi/simple
+ARG NPM_REGISTRY=https://registry.npmjs.org/
+ARG PIP_INDEX_URL=https://pypi.org/simple
+
 # ── 阶段一：构建前端 ──────────────────────────────────────────────────────────
 FROM node:20-slim AS frontend
+ARG NPM_REGISTRY
 WORKDIR /build
 COPY frontend/package*.json ./
-RUN npm ci
+RUN npm config set registry "$NPM_REGISTRY" && npm ci
 COPY frontend/ ./
 RUN npm run build
 
 # ── 阶段二：运行时 ────────────────────────────────────────────────────────────
 FROM python:3.12-slim
+ARG PIP_INDEX_URL
+ENV PIP_INDEX_URL=$PIP_INDEX_URL
 
 # HF Spaces 以 uid 1000 的非 root 用户运行容器。
 # 必须建同名用户并保证工作目录可写，否则 ChromaDB 建库、模型缓存都会因权限失败。
