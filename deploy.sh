@@ -27,23 +27,27 @@ sudo systemctl enable --now docker >/dev/null 2>&1 || true
 # ── 3. API Key ─────────────────────────────────────────────────────────────────
 echo
 echo "[3/5] 配置模型 API Key"
-echo "      Key 只写入本机的 .env 文件，不会上传到任何地方。"
-read -r -s -p "      请粘贴 DeepSeek API Key（输入不回显，粘贴后按回车）: " API_KEY
-echo
-if [ -z "$API_KEY" ]; then
-  echo "❌ Key 不能为空，退出。"
-  exit 1
-fi
-
-cat > .env.deploy <<EOF
+if [ -s .env.deploy ] && grep -q '^ANTHROPIC_API_KEY=.\+' .env.deploy; then
+  echo "      ✅ 检测到已有 .env.deploy，跳过输入"
+else
+  echo "      Key 只写入本机的 .env 文件，不会上传到任何地方。"
+  echo "      （若在后台/非交互环境运行，请先手动创建 .env.deploy，见 README）"
+  read -r -s -p "      请粘贴 DeepSeek API Key（输入不回显，粘贴后按回车）: " API_KEY
+  echo
+  if [ -z "$API_KEY" ]; then
+    echo "❌ Key 不能为空，退出。"
+    exit 1
+  fi
+  cat > .env.deploy <<EOF
 ANTHROPIC_API_KEY=$API_KEY
 ANTHROPIC_MODEL=deepseek-chat
 ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic
 PORT=8000
 CHAT_RATE_LIMIT=20/hour
 EOF
-chmod 600 .env.deploy
-echo "      ✅ 已写入 .env.deploy（权限 600，仅本用户可读）"
+  chmod 600 .env.deploy
+  echo "      ✅ 已写入 .env.deploy（权限 600，仅本用户可读）"
+fi
 
 # ── 4. 构建镜像 ────────────────────────────────────────────────────────────────
 echo
